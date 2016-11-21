@@ -5,9 +5,11 @@ lanproxy是一个将局域网个人电脑、服务器代理到公网的工具，
 ![lanproxy](lanproxy.png)
 ### 使用
 #### 直接获取发布包
+- distribution/proxy-client-0.0.1.tar.gz
+- distribution/proxy-server-0.0.1.tar.gz
 
 #### 编译生成运行包
-拉取源码，运行 mvn package，打包后的资源放在distribution目录中，包括client和server
+- 拉取源码，运行 mvn package，打包后的资源放在distribution目录中，包括client和server
 
 #### 配置
 ##### server
