@@ -9,6 +9,7 @@ import org.fengfei.lanproxy.protocol.IdleCheckHandler;
 import org.fengfei.lanproxy.protocol.ProxyMessageDecoder;
 import org.fengfei.lanproxy.protocol.ProxyMessageEncoder;
 import org.fengfei.lanproxy.server.config.ProxyConfig;
+import org.fengfei.lanproxy.server.handlers.HttpRequestHandler;
 import org.fengfei.lanproxy.server.handlers.ServerChannelHandler;
 import org.fengfei.lanproxy.server.handlers.UserChannelHandler;
 import org.slf4j.Logger;
@@ -16,9 +17,13 @@ import org.slf4j.LoggerFactory;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelPipeline;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
+import io.netty.handler.codec.http.HttpObjectAggregator;
+import io.netty.handler.codec.http.HttpServerCodec;
+import io.netty.handler.stream.ChunkedWriteHandler;
 
 public class ProxyServerContainer implements Container {
 
@@ -67,6 +72,28 @@ public class ProxyServerContainer implements Container {
         try {
             bootstrap.bind(ProxyConfig.getServerPort()).get();
             logger.info("proxy server start on port " + ProxyConfig.getServerPort());
+        } catch (Exception ex) {
+            throw new RuntimeException(ex);
+        }
+
+        ServerBootstrap httpServerBootstrap = new ServerBootstrap();
+        httpServerBootstrap.group(serverBossGroup, serverWorkerGroup).channel(NioServerSocketChannel.class)
+                .childHandler(new ChannelInitializer<SocketChannel>() {
+
+                    @Override
+                    public void initChannel(SocketChannel ch) throws Exception {
+                        ChannelPipeline pipeline = ch.pipeline();
+
+                        pipeline.addLast(new HttpServerCodec());
+                        pipeline.addLast(new HttpObjectAggregator(64 * 1024));
+                        pipeline.addLast(new ChunkedWriteHandler());
+                        pipeline.addLast(new HttpRequestHandler());
+                    }
+                });
+
+        try {
+            httpServerBootstrap.bind(8080).get();
+            logger.info("http server start on port " + 8080);
         } catch (Exception ex) {
             throw new RuntimeException(ex);
         }
