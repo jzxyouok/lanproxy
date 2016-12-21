@@ -3,11 +3,14 @@ package org.fengfei.lanproxy.server.handlers;
 import java.io.File;
 import java.io.RandomAccessFile;
 import java.net.URI;
+import java.nio.charset.Charset;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.fengfei.lanproxy.common.JsonUtil;
 import org.fengfei.lanproxy.common.MimeType;
+
+import com.google.gson.reflect.TypeToken;
 
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
@@ -21,7 +24,6 @@ import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpHeaders.Names;
-import io.netty.handler.codec.http.HttpHeaders.Values;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.HttpResponseStatus;
@@ -35,6 +37,8 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<FullHttpRequ
     private static final String PAGE_FOLDER = System.getProperty("app.home", System.getProperty("user.dir"))
             + "/webpages";
 
+    private static final String SERVER_VS = "LPS-0.1";
+
     private static Map<String, RequestHandler> httpRoute = new ConcurrentHashMap<String, RequestHandler>();
 
     static {
@@ -42,7 +46,14 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<FullHttpRequ
 
             @Override
             public ResponseInfo request(FullHttpRequest request) {
-                // TODO Auto-generated method stub
+                byte[] buf = new byte[request.content().readableBytes()];
+                request.content().readBytes(buf);
+                String content = new String(buf);
+                Map<String, String> params = JsonUtil.json2object(content, new TypeToken<Map<String, String>>() {
+                });
+                if (params == null) {
+                    return new ResponseInfo(40000, "error request body");
+                }
                 return new ResponseInfo("ok");
             }
         });
@@ -50,7 +61,6 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<FullHttpRequ
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest request) throws Exception {
-
         if (request.getMethod() != HttpMethod.POST) {
             outputPages(ctx, request);
             return;
@@ -61,19 +71,25 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<FullHttpRequ
         if (handler != null) {
             responseInfo = handler.request(request);
         } else {
-            responseInfo = new ResponseInfo(40400, "api not found");
+            responseInfo = new ResponseInfo(ResponseInfo.CODE_API_NOT_FOUND, "api not found");
+        }
+        outputContent(ctx, request, responseInfo.getCode() / 100, JsonUtil.object2json(responseInfo),
+                "application/json");
+    }
+
+    private void outputContent(ChannelHandlerContext ctx, FullHttpRequest request, int code, String content,
+            String mimeType) {
+
+        FullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.valueOf(code),
+                Unpooled.wrappedBuffer(content.getBytes(Charset.forName("UTF-8"))));
+        response.headers().set(Names.CONTENT_TYPE, mimeType);
+        response.headers().set(Names.CONTENT_LENGTH, response.content().readableBytes());
+        response.headers().set(Names.SERVER, SERVER_VS);
+        ChannelFuture future = ctx.writeAndFlush(response);
+        if (!HttpHeaders.isKeepAlive(request)) {
+            future.addListener(ChannelFutureListener.CLOSE);
         }
 
-        FullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1,
-                HttpResponseStatus.valueOf(responseInfo.getCode() / 100),
-                Unpooled.wrappedBuffer(JsonUtil.object2json(responseInfo).getBytes("UTF-8")));
-        response.headers().set(Names.CONTENT_TYPE, "application/json");
-        response.headers().set(Names.CONTENT_LENGTH, response.content().readableBytes());
-        if (HttpHeaders.isKeepAlive(request)) {
-            response.headers().set(Names.CONNECTION, Values.KEEP_ALIVE);
-        }
-        ctx.write(response);
-        ctx.flush();
     }
 
     private void outputPages(ChannelHandlerContext ctx, FullHttpRequest request) throws Exception {
@@ -85,7 +101,8 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<FullHttpRequ
         File rfile = new File(path);
         if (!rfile.exists()) {
             status = HttpResponseStatus.NOT_FOUND;
-            rfile = new File(PAGE_FOLDER + "/index.html");
+            outputContent(ctx, request, status.code(), status.toString(), "text/html");
+            return;
         }
         if (HttpHeaders.is100ContinueExpected(request)) {
             send100Continue(ctx);
@@ -99,6 +116,7 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<FullHttpRequ
             response.headers().set(HttpHeaders.Names.CONTENT_LENGTH, file.length());
             response.headers().set(HttpHeaders.Names.CONNECTION, HttpHeaders.Values.KEEP_ALIVE);
         }
+        response.headers().set(Names.SERVER, SERVER_VS);
         ctx.write(response);
 
         if (ctx.pipeline().get(SslHandler.class) == null) {
@@ -126,14 +144,22 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<FullHttpRequ
 
     public static class ResponseInfo {
 
+        public static final int CODE_OK = 20000;
+
+        public static final int CODE_INVILID_PARAMS = 40000;
+
+        public static final int CODE_API_NOT_FOUND = 40400;
+
+        public static final int CODE_SYSTEM_ERROR = 50000;
+
         private int code;
         private String message;
-        private Object dara;
+        private Object data;
 
         public ResponseInfo(int code, String message, Object data) {
             this.code = code;
             this.message = message;
-            this.dara = data;
+            this.data = data;
         }
 
         public ResponseInfo(int code, String message) {
@@ -141,7 +167,7 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<FullHttpRequ
         }
 
         public ResponseInfo(Object data) {
-            this(20000, "success", data);
+            this(ResponseInfo.CODE_OK, "success", data);
         }
 
         public int getCode() {
@@ -160,12 +186,12 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<FullHttpRequ
             this.message = message;
         }
 
-        public Object getDara() {
-            return dara;
+        public Object getData() {
+            return data;
         }
 
-        public void setDara(Object dara) {
-            this.dara = dara;
+        public void setData(Object data) {
+            this.data = data;
         }
 
     }

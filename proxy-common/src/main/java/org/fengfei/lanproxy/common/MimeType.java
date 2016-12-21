@@ -210,14 +210,18 @@ public class MimeType {
     }
 
     public static String parseSuffix(String url) {
-        Matcher matcher = pattern.matcher(url);
-        String[] spUrl = url.toString().split("/");
-        int len = spUrl.length;
-        String endUrl = spUrl[len - 1];
-        if (matcher.find()) {
-            String[] spEndUrl = endUrl.split("\\?");
-            return spEndUrl[0].split("\\.")[1];
+        try {
+            Matcher matcher = pattern.matcher(url);
+            String[] spUrl = url.toString().split("/");
+            int len = spUrl.length;
+            String endUrl = spUrl[len - 1];
+            if (matcher.find()) {
+                String[] spEndUrl = endUrl.split("\\?");
+                return spEndUrl[0].split("\\.")[1];
+            }
+            return endUrl.split("\\.")[1];
+        } catch (Exception e) {
+            return "html";
         }
-        return endUrl.split("\\.")[1];
     }
 }
