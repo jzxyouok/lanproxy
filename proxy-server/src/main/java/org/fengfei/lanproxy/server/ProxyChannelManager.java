@@ -31,21 +31,20 @@ public class ProxyChannelManager {
     private static Map<Integer, Channel> proxyChannels = new ConcurrentHashMap<Integer, Channel>();
 
     public static void addChannel(List<Integer> ports, Channel channel) {
-        if (ports == null) {
-            ports = channel.attr(CHANNEL_PORT).get();
-        }
+
         if (ports == null) {
             throw new IllegalArgumentException("port can not be null");
         }
+
+        // 客户端（proxy-client）相对较少，这里同步的比较重
+        // 保证服务器对外端口与客户端到服务器的连接关系在临界情况时调用removeChannel(Channel channel)时不出问题
         synchronized (proxyChannels) {
             for (int port : ports) {
                 proxyChannels.put(port, channel);
             }
         }
         channel.attr(CHANNEL_PORT).set(ports);
-        if (channel.attr(USER_CHANNELS).get() == null) {
-            channel.attr(USER_CHANNELS).set(new ConcurrentHashMap<String, Channel>());
-        }
+        channel.attr(USER_CHANNELS).set(new ConcurrentHashMap<String, Channel>());
     }
 
     public static void removeChannel(Channel channel) {
@@ -57,8 +56,16 @@ public class ProxyChannelManager {
             List<Integer> ports = channel.attr(CHANNEL_PORT).get();
             for (int port : ports) {
                 Channel proxyChannel = proxyChannels.remove(port);
-                if (proxyChannel.isActive()) {
-                    proxyChannel.close();
+                if (proxyChannel == null) {
+                    continue;
+                }
+                //在执行断连之前新的连接已经连上来了
+                if (proxyChannel != channel) {
+                    proxyChannels.put(port, proxyChannel);
+                } else {
+                    if (proxyChannel.isActive()) {
+                        proxyChannel.close();
+                    }
                 }
             }
         }
@@ -82,7 +89,7 @@ public class ProxyChannelManager {
 
     public static Channel removeUserChannel(Channel proxyChannel, String userId) {
         synchronized (proxyChannel) {
-            return proxyChannel.attr(USER_CHANNELS).get().get(userId);
+            return proxyChannel.attr(USER_CHANNELS).get().remove(userId);
         }
     }
 
