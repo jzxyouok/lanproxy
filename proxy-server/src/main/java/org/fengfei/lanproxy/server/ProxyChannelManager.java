@@ -43,6 +43,7 @@ public class ProxyChannelManager {
                 proxyChannels.put(port, channel);
             }
         }
+
         channel.attr(CHANNEL_PORT).set(ports);
         channel.attr(USER_CHANNELS).set(new ConcurrentHashMap<String, Channel>());
     }
@@ -52,6 +53,7 @@ public class ProxyChannelManager {
         if (channel.attr(CHANNEL_PORT).get() == null) {
             return;
         }
+
         synchronized (proxyChannels) {
             List<Integer> ports = channel.attr(CHANNEL_PORT).get();
             for (int port : ports) {
@@ -59,6 +61,7 @@ public class ProxyChannelManager {
                 if (proxyChannel == null) {
                     continue;
                 }
+
                 //在执行断连之前新的连接已经连上来了
                 if (proxyChannel != channel) {
                     proxyChannels.put(port, proxyChannel);
@@ -69,6 +72,7 @@ public class ProxyChannelManager {
                 }
             }
         }
+
         Map<String, Channel> userChannels = getUserChannels(channel);
         Iterator<String> ite = userChannels.keySet().iterator();
         while (ite.hasNext()) {
@@ -111,9 +115,11 @@ public class ProxyChannelManager {
             if (client != null) {
                 userChannel.attr(CLIENT_CHANNEL_WRITEABLE).set(client);
             }
+
             if (proxy != null) {
                 userChannel.attr(PROXY_CHANNEL_WRITEABLE).set(proxy);
             }
+
             if (userChannel.attr(CLIENT_CHANNEL_WRITEABLE).get() && userChannel.attr(PROXY_CHANNEL_WRITEABLE).get()) {
                 userChannel.config().setOption(ChannelOption.AUTO_READ, true);
             } else {

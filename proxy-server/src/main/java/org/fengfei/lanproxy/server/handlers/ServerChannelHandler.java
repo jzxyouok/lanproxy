@@ -94,12 +94,13 @@ public class ServerChannelHandler extends SimpleChannelInboundHandler<ProxyMessa
 
     private void handleAuthMessage(ChannelHandlerContext ctx, ProxyMessage proxyMessage) {
         String clientKey = proxyMessage.getUri();
-        List<Integer> ports = ProxyConfig.getClientInetPorts(clientKey);
+        List<Integer> ports = ProxyConfig.getInstance().getClientInetPorts(clientKey);
         if (ports == null) {
             logger.info("error clientKey {}, close channel", clientKey);
             ctx.channel().close();
             return;
         }
+
         logger.info("set port => channel, {} {}", clientKey, ports);
         ProxyChannelManager.addChannel(ports, ctx.channel());
     }

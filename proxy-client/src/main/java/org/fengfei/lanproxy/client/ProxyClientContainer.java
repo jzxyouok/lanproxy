@@ -89,6 +89,8 @@ public class ProxyClientContainer implements Container, ChannelStatusListener {
                     @Override
                     public void operationComplete(ChannelFuture future) throws Exception {
                         if (future.isSuccess()) {
+
+                            // 连接成功，向服务器发送客户端认证信息（clientKey）
                             ClientChannelMannager.setChannel(future.channel());
                             ProxyMessage proxyMessage = new ProxyMessage();
                             proxyMessage.setType(ProxyMessage.TYPE_AUTH);
@@ -97,6 +99,8 @@ public class ProxyClientContainer implements Container, ChannelStatusListener {
                             logger.info("connect proxy server success, {}", future.channel());
                         } else {
                             logger.warn("connect proxy server failed", future.cause());
+
+                            // 连接失败，延时1秒发起重连
                             Thread.sleep(1000);
                             connectProxyServer();
                         }
@@ -115,6 +119,7 @@ public class ProxyClientContainer implements Container, ChannelStatusListener {
             Thread.sleep(1000);
         } catch (InterruptedException e) {
         }
+
         connectProxyServer();
     }
 

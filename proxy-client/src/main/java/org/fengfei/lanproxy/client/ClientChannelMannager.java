@@ -11,6 +11,12 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelOption;
 import io.netty.util.AttributeKey;
 
+/**
+ * 代理客户端与后端真实服务器连接管理
+ *
+ * @author fengfei
+ *
+ */
 public class ClientChannelMannager {
 
     private static Logger logger = LoggerFactory.getLogger(ClientChannelMannager.class);
@@ -65,9 +71,11 @@ public class ClientChannelMannager {
             if (client != null) {
                 realServerChannel.attr(CLIENT_CHANNEL_WRITEABLE).set(client);
             }
+
             if (user != null) {
                 realServerChannel.attr(USER_CHANNEL_WRITEABLE).set(user);
             }
+
             if (realServerChannel.attr(CLIENT_CHANNEL_WRITEABLE).get()
                     && realServerChannel.attr(USER_CHANNEL_WRITEABLE).get()) {
                 realServerChannel.config().setOption(ChannelOption.AUTO_READ, true);
@@ -96,6 +104,7 @@ public class ClientChannelMannager {
                 Channel realServerChannel = realServerChannels.get(ite.next());
                 realServerChannel.close();
             }
+
             realServerChannels.clear();
         }
     }

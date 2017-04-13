@@ -1,15 +1,12 @@
 {
-    "server_port": 4900,
+    "serverPort": 4900,
     "clients": [
         {
-            "client_key": "client",
-            "proxy_mapping": [
+            "clientKey": "client",
+            "proxyMappings": [
                 {
-                    "inet_port": 5080,
-                    "lan": {
-                        "ip": "127.0.0.1",
-                        "port": 80
-                    }
+                    "inetPort": 5084,
+                    "lan": "127.0.01:80"
                 }
             ]
         }

@@ -1,5 +1,6 @@
 package org.fengfei.lanproxy.server;
 
+import java.net.BindException;
 import java.util.Arrays;
 import java.util.List;
 
@@ -9,6 +10,7 @@ import org.fengfei.lanproxy.protocol.IdleCheckHandler;
 import org.fengfei.lanproxy.protocol.ProxyMessageDecoder;
 import org.fengfei.lanproxy.protocol.ProxyMessageEncoder;
 import org.fengfei.lanproxy.server.config.ProxyConfig;
+import org.fengfei.lanproxy.server.config.ProxyConfig.ConfigChangedListener;
 import org.fengfei.lanproxy.server.handlers.ServerChannelHandler;
 import org.fengfei.lanproxy.server.handlers.UserChannelHandler;
 import org.slf4j.Logger;
@@ -20,7 +22,7 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 
-public class ProxyServerContainer implements Container {
+public class ProxyServerContainer implements Container, ConfigChangedListener {
 
     /**
      * max packet is 2M.
@@ -42,9 +44,13 @@ public class ProxyServerContainer implements Container {
     private NioEventLoopGroup serverBossGroup;
 
     public ProxyServerContainer() {
-        ProxyConfig.init();
+
         serverBossGroup = new NioEventLoopGroup();
         serverWorkerGroup = new NioEventLoopGroup();
+
+        ProxyConfig.addConfigChangedListener(this);
+        ProxyConfig.update();
+
     }
 
     @Override
@@ -65,13 +71,12 @@ public class ProxyServerContainer implements Container {
                 });
 
         try {
-            bootstrap.bind(ProxyConfig.getServerPort()).get();
-            logger.info("proxy server start on port " + ProxyConfig.getServerPort());
+            bootstrap.bind(ProxyConfig.getInstance().getServerPort()).get();
+            logger.info("proxy server start on port " + ProxyConfig.getInstance().getServerPort());
         } catch (Exception ex) {
             throw new RuntimeException(ex);
         }
 
-        startUserPort();
     }
 
     private void startUserPort() {
@@ -86,15 +91,25 @@ public class ProxyServerContainer implements Container {
                     }
                 });
 
-        try {
-            List<Integer> ports = ProxyConfig.getUserPorts();
-            for (int port : ports) {
+        List<Integer> ports = ProxyConfig.getInstance().getUserPorts();
+        for (int port : ports) {
+            try {
                 bootstrap.bind(port).get();
                 logger.info("bind user port " + port);
+            } catch (Exception ex) {
+
+                // BindException表示该端口已经绑定过
+                if (!(ex.getCause() instanceof BindException)) {
+                    throw new RuntimeException(ex);
+                }
             }
-        } catch (Exception ex) {
-            throw new RuntimeException(ex);
         }
+
+    }
+
+    @Override
+    public void onChanged() {
+        startUserPort();
     }
 
     @Override
@@ -106,4 +121,5 @@ public class ProxyServerContainer implements Container {
     public static void main(String[] args) {
         ContainerHelper.start(Arrays.asList(new Container[] { new ProxyServerContainer() }));
     }
+
 }

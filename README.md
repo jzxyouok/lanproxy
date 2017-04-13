@@ -16,17 +16,14 @@ lanproxy是一个将局域网个人电脑、服务器代理到公网的工具，
 server的配置文件放置在conf目录中，配置 config.json
 ```js
 {
-  "server_port":4900,//服务器与内网client数据交互的端口
+  "serverPort":4900,//服务器与内网client数据交互的端口
   "clients":[//支持同时配置多个client
     {
-      "client_key":"client_01",//一个proxy-server可以支持多个client连接，通过client_key区分
-      "proxy_mapping":[//支持同时配置多个代理映射
+      "clientKey":"client_01",//一个proxy-server可以支持多个client连接，通过client_key区分
+      "proxyMappings":[//支持同时配置多个代理映射
         {
-          "inet_port":8080,//公网端口，本配置表示访问公网ip的8080端口将代理到内网192.168.1.5的8080端口
-          "lan":{
-            "ip":"192.168.1.5",
-            "port":8080
-          }
+          "inetPort":8080,//公网端口，本配置表示访问公网ip的8080端口将代理到内网192.168.1.5的8080端口
+          "lan":"ip":"192.168.1.5:8080" // 要代理的后端服务器
         }
       ]
     }
